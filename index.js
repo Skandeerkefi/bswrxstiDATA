@@ -55,6 +55,8 @@ const allowedOrigins = [
 	"misterteedata.railway.internal",
 	"https://mister-tee.vercel.app/Leaderboards",
 	"https://www.misterteerewards.com",
+	"https://bswrxsti-787m61xns-skanderkefi88-8456s-projects.vercel.app",
+	"https://www.bswrxsti.net",
 ];
 
 app.use(
