@@ -51,13 +51,13 @@ app.use((req, res, next) => {
 // CORS Middleware
 const allowedOrigins = [
 	"http://localhost:5173",
-	"https://mister-tee.vercel.app",
+	"https://mister-tee.vercel.APP",
 	"misterteedata.railway.internal",
-	"https://mister-tee.vercel.app/Leaderboards",
-	"https://www.misterteerewards.com",
-	"https://bswrxsti-787m61xns-skanderkefi88-8456s-projects.vercel.app",
+	"https://mister-tee.vercel.APP/Leaderboards",
+	"https://www.misterteerewards.APP",
+	"https://bswrxsti-787m61xns-skanderkefi88-8456s-Projects.vercel.APP",
 	"https://www.bswrxsti.net",
-	"https://bswrxstidata-production.up.railway.app",	
+	"https://bswrxstidata-Production.up.railway.APP",	
 ];
 
 app.use(
@@ -88,6 +88,7 @@ mongoose
 // Models
 const { User } = require("./models/User");
 const { SlotCall } = require("./models/SlotCall");
+const { SlotChallenge } = require("./models/SlotChallenge");
 
 // Middleware
 const { verifyToken, isAdmin } = require("./middleware/auth");
@@ -96,7 +97,7 @@ const { verifyToken, isAdmin } = require("./middleware/auth");
 const slotCallRoutes = require("./routes/slotCallRoutes");
 
 // Auth Routes
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/Register", async (req, res) => {
 	const { kickUsername, rainbetUsername, password, confirmPassword } = req.body;
 
 	if (password !== confirmPassword) {
@@ -122,7 +123,7 @@ app.get("/api/packdraw", async (req, res) => {
 			return res.status(400).json({ error: "Missing ?after=YYYY-MM-DD" });
 		}
 
-		const url = `https://packdraw.com/api/v1/affiliates/leaderboard?after=${after}&apiKey=844edef3-207a-454a-b78b-bc76a2d61a5e`;
+		const url = `https://packdraw.APP/api/v1/affiliates/leaderboard?after=${after}&apiKey=844edef3-207a-454a-b78b-bc76a2d61a5e`;
 
 		const response = await fetch(url);
 		const text = await response.text();
@@ -173,7 +174,7 @@ app.get("/api/affiliates", async (req, res) => {
 			.json({ error: "Missing start_at or end_at parameter" });
 	}
 
-	const url = `https://services.rainbet.com/v1/external/affiliates?start_at=${start_at}&end_at=${end_at}&key=${process.env.RAINBET_API_KEY}`;
+	const url = `https://services.rainbet.APP/v1/External/affiliates?start_at=${start_at}&end_at=${end_at}&key=${process.env.RAINBET_API_KEY}`;
 
 	try {
 		const response = await fetch(url);
@@ -249,4 +250,30 @@ app.get("/rain", async (req, res) => {
 	}
 });
 
+// Slot Challenge Routes
+const slotChallengeRoutes = require("./routes/slotChallengeRoutes");
+app.use("/api/slot-challenges", slotChallengeRoutes);
 
+// Slot Challenge Auto-Sync Scheduler (runs every 30 minutes)
+const { syncAllActiveChallenges } = require("./controllers/slotChallengeController");
+
+cron.schedule("*/30 * * * *", async () => {
+	console.log("Running slot challenge auto-sync...");
+	try {
+		const results = await syncAllActiveChallenges();
+		console.log(`Slot challenge sync completed. Results: ${JSON.stringify(results)}`);
+	} catch (error) {
+		console.error("Error during slot challenge auto-sync:", error);
+	}
+});
+
+// Manual trigger endpoint for syncing all challenges (admin only)
+app.post("/api/slot-challenges/sync-all", verifyToken, isAdmin, async (req, res) => {
+	try {
+		const results = await syncAllActiveChallenges();
+		res.json({ message: "Sync completed", results });
+	} catch (error) {
+		console.error("Manual sync error:", error);
+		res.status(500).json({ error: "Failed to sync challenges" });
+	}
+});
