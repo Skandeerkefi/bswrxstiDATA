@@ -1,6 +1,14 @@
+const axios = require("axios");
 const { SlotChallenge } = require("../models/SlotChallenge");
-const fetch = (...args) =>
-  import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
+// Helper function to blur usernames
+function blurUsername(username) {
+  if (!username || username.length <= 2) return "***";
+  const firstChar = username.charAt(0);
+  const lastChar = username.charAt(username.length - 1);
+  const blurredPart = "*".repeat(Math.max(0, username.length - 2));
+  return firstChar + blurredPart + lastChar;
+}
 
 // Helper function to normalize game titles for comparison
 const normalizeGameTitle = (title) => {
@@ -17,35 +25,65 @@ const gameTitlesMatch = (title1, title2) => {
   return normalizeGameTitle(title1) === normalizeGameTitle(title2);
 };
 
-// Fetch stats from Roobet Affiliate Stats API
-const fetchRoobetStats = async (userId, startDate, endDate, gameIdentifiers = null) => {
-  const params = new URLSearchParams({
-    userId,
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
-  });
+// Filter out dice from house games
+function filterDice(player) {
+  if (!player.favoriteGameId) return true;
+  return !player.favoriteGameId.includes("housegames:dice");
+}
 
+// Fetch stats from Roobet Affiliate Stats API using the same pattern as leaderboardController
+const fetchRoobetStats = async (startDate, endDate, gameIdentifiers = null) => {
+  const params = {
+    userId: process.env.USER_ID,
+  };
+
+  if (startDate) params.startDate = startDate instanceof Date ? startDate.toISOString() : startDate;
+  if (endDate) params.endDate = endDate instanceof Date ? endDate.toISOString() : endDate;
+  
   if (gameIdentifiers) {
-    params.append("gameIdentifiers", gameIdentifiers);
+    params.gameIdentifiers = gameIdentifiers;
   } else {
-    params.append("categories", "slots");
+    params.categories = "slots,provably fair"; // Only Slots & Provably Fair
   }
 
-  const response = await fetch(
-    `https://roobetconnect.com/affiliate/v2/stats?${params.toString()}`,
+  const response = await axios.get(
+    `${process.env.API_BASE_URL}/affiliate/v2/stats`,
     {
+      params,
       headers: {
-        Authorization: `Bearer ${process.env.ROOBET_JWT_TOKEN}`,
-        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.ROOBET_API_KEY}`,
       },
     }
   );
 
-  if (!response.ok) {
-    throw new Error(`Roobet API error: ${response.status}`);
-  }
-
-  return response.json();
+  // Process data similar to leaderboardController
+  // Log raw data count for debugging
+  console.log(`Roobet API returned ${response.data.length} players`);
+  
+  const filteredData = response.data
+    .filter(filterDice)
+    .filter(player => player.highestMultiplier && player.highestMultiplier.multiplier > 0);
+  
+  console.log(`After filtering: ${filteredData.length} players`);
+  
+  return filteredData
+    .map((player) => ({
+      uid: player.uid,
+      username: blurUsername(player.username),
+      wagered: player.wagered || 0,
+      weightedWagered: player.weightedWagered || 0,
+      favoriteGameId: player.favoriteGameId || "",
+      favoriteGameTitle: player.favoriteGameTitle || "",
+      rankLevel: player.rankLevel || 0,
+      rankLevelImage: player.rankLevelImage || "",
+      highestMultiplier: {
+        multiplier: player.highestMultiplier?.multiplier || 0,
+        wagered: player.highestMultiplier?.wagered || 0,
+        payout: player.highestMultiplier?.payout || 0,
+        gameId: player.highestMultiplier?.gameId || "",
+        gameTitle: player.highestMultiplier?.gameTitle || "",
+      },
+    }));
 };
 
 // Search slots using the bonus hunt API
@@ -59,13 +97,9 @@ exports.searchSlots = async (req, res) => {
 
     // Use Roobet site to get correct game names
     const searchUrl = `https://bonushunt.gg/api/slots?q=${encodeURIComponent(q)}&site=Roobet`;
-    const response = await fetch(searchUrl);
+    const response = await axios.get(searchUrl);
     
-    if (!response.ok) {
-      return res.status(response.status).json({ error: "Failed to search slots" });
-    }
-
-    const data = await response.json();
+    const data = response.data;
     
     // Get the slots array - handle various response formats
     let slotsArray = [];
@@ -243,14 +277,12 @@ const syncChallengeLeaderboard = async (challenge) => {
   try {
     if (challenge.gameId) {
       roobetData = await fetchRoobetStats(
-        process.env.ROOBET_USER_ID,
         startDate,
         endDate,
         challenge.gameId
       );
     } else {
       roobetData = await fetchRoobetStats(
-        process.env.ROOBET_USER_ID,
         startDate,
         endDate
       );
