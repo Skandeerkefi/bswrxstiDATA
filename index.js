@@ -89,6 +89,7 @@ mongoose
 const { User } = require("./models/User");
 const { SlotCall } = require("./models/SlotCall");
 const { SlotChallenge } = require("./models/SlotChallenge");
+const { LeaderboardSettings } = require("./models/LeaderboardSettings");
 
 // Middleware
 const { verifyToken, isAdmin } = require("./middleware/auth");
@@ -277,3 +278,7 @@ app.post("/api/slot-challenges/sync-all", verifyToken, isAdmin, async (req, res)
 		res.status(500).json({ error: "Failed to sync challenges" });
 	}
 });
+
+// Leaderboard Settings Routes
+const leaderboardSettingsRoutes = require("./routes/leaderboardSettingsRoutes");
+app.use("/api/leaderboard-settings", leaderboardSettingsRoutes);

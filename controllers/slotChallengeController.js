@@ -131,7 +131,7 @@ exports.searchSlots = async (req, res) => {
 // Create a new slot challenge
 exports.createChallenge = async (req, res) => {
   try {
-    const { title, gameTitle, gameImageUrl, gameProvider, minBet, targetMultiplier, winnerCount, winnerSelectionMode, startDate, endDate } = req.body;
+    const { title, gameId, gameTitle, gameImageUrl, gameProvider, minBet, targetMultiplier, winnerCount, winnerSelectionMode, startDate, endDate } = req.body;
 
     if (!gameTitle) {
       return res.status(400).json({ error: "Game title is required" });
@@ -139,6 +139,7 @@ exports.createChallenge = async (req, res) => {
 
     const challenge = new SlotChallenge({
       title: title || `Slot Challenge - ${gameTitle}`,
+      gameId: gameId || null,
       gameTitle,
       gameImageUrl: gameImageUrl || "",
       gameProvider: gameProvider || "",
@@ -193,7 +194,7 @@ exports.getChallengeById = async (req, res) => {
 // Update a challenge
 exports.updateChallenge = async (req, res) => {
   try {
-    const { title, gameTitle, gameImageUrl, gameProvider, minBet, targetMultiplier, winnerCount, winnerSelectionMode, isActive, status, startDate, endDate } = req.body;
+    const { title, gameId, gameTitle, gameImageUrl, gameProvider, minBet, targetMultiplier, winnerCount, winnerSelectionMode, isActive, status, startDate, endDate } = req.body;
 
     const challenge = await SlotChallenge.findById(req.params.id);
     if (!challenge) {
@@ -201,6 +202,7 @@ exports.updateChallenge = async (req, res) => {
     }
 
     if (title !== undefined) challenge.title = title;
+    if (gameId !== undefined) challenge.gameId = gameId;
     if (gameTitle !== undefined) challenge.gameTitle = gameTitle;
     if (gameImageUrl !== undefined) challenge.gameImageUrl = gameImageUrl;
     if (gameProvider !== undefined) challenge.gameProvider = gameProvider;
